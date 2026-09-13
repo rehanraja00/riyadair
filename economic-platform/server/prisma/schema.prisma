@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum Frequency {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum Visibility {
+  PRIVATE
+  SHARED
+  PUBLIC
+}
+
+enum WidgetType {
+  KPI
+  LINE_CHART
+  BAR_CHART
+  TABLE
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(VIEWER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  indicatorsCreated Indicator[] @relation("IndicatorCreatedBy")
+  views             View[]      @relation("ViewOwner")
+}
+
+model IndicatorCategory {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  slug        String      @unique
+  description String?
+  createdAt   DateTime    @default(now())
+  indicators  Indicator[]
+}
+
+model Indicator {
+  id          String    @id @default(uuid())
+  code        String    @unique
+  name        String
+  description String?
+  unit        String
+  frequency   Frequency
+  source      String?
+  sourceUrl   String?
+
+  categoryId String
+  category   IndicatorCategory @relation(fields: [categoryId], references: [id])
+
+  createdById String?
+  createdBy   User?   @relation("IndicatorCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dataPoints   IndicatorDataPoint[]
+  viewWidgets  ViewWidgetIndicator[]
+}
+
+model IndicatorDataPoint {
+  id          String   @id @default(uuid())
+  indicatorId String
+  indicator   Indicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  period      DateTime
+  value       Float
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@unique([indicatorId, period])
+  @@index([indicatorId, period])
+}
+
+model View {
+  id          String     @id @default(uuid())
+  slug        String     @unique
+  title       String
+  description String?
+  visibility  Visibility @default(PRIVATE)
+
+  ownerId String
+  owner   User   @relation("ViewOwner", fields: [ownerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  widgets ViewWidget[]
+}
+
+model ViewWidget {
+  id     String     @id @default(uuid())
+  viewId String
+  view   View       @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  order  Int
+  type   WidgetType
+  title  String?
+  config Json?
+
+  indicators ViewWidgetIndicator[]
+
+  @@index([viewId, order])
+}
+
+model ViewWidgetIndicator {
+  id           String     @id @default(uuid())
+  viewWidgetId String
+  viewWidget   ViewWidget @relation(fields: [viewWidgetId], references: [id], onDelete: Cascade)
+  indicatorId  String
+  indicator    Indicator  @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  order        Int        @default(0)
+
+  @@unique([viewWidgetId, indicatorId])
+}

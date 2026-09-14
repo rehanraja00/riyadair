@@ -14,6 +14,15 @@ export default function AdminPage() {
         <NavLink to="/admin/categories" className={({ isActive }) => (isActive ? 'active' : '')}>
           Categories
         </NavLink>
+        <NavLink to="/admin/sections" className={({ isActive }) => (isActive ? 'active' : '')}>
+          Sections
+        </NavLink>
+        <NavLink to="/admin/sources" className={({ isActive }) => (isActive ? 'active' : '')}>
+          Sources
+        </NavLink>
+        <NavLink to="/admin/units" className={({ isActive }) => (isActive ? 'active' : '')}>
+          Units
+        </NavLink>
       </div>
       <Outlet />
     </div>

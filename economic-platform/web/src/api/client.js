@@ -51,10 +51,36 @@ export const api = {
   addDataPoints: (id, points) => request(`/indicators/${id}/datapoints`, { method: 'POST', body: points }),
   deleteDataPoint: (id, pointId) => request(`/indicators/${id}/datapoints/${pointId}`, { method: 'DELETE' }),
 
+  addTargets: (id, points) => request(`/indicators/${id}/targets`, { method: 'POST', body: points }),
+  deleteTarget: (id, targetId) => request(`/indicators/${id}/targets/${targetId}`, { method: 'DELETE' }),
+  addForecast: (id, points) => request(`/indicators/${id}/forecasts`, { method: 'POST', body: points }),
+  addBaseline: (id, payload) => request(`/indicators/${id}/baselines`, { method: 'POST', body: payload }),
+  activateBaseline: (id, baselineId) =>
+    request(`/indicators/${id}/baselines/${baselineId}/activate`, { method: 'POST' }),
+
   listViews: () => request('/views'),
   getView: (slug) => request(`/views/${slug}`),
   createView: (payload) => request('/views', { method: 'POST', body: payload }),
   updateView: (id, payload) => request(`/views/${id}`, { method: 'PUT', body: payload }),
   deleteView: (id) => request(`/views/${id}`, { method: 'DELETE' }),
   setViewWidgets: (id, widgets) => request(`/views/${id}/widgets`, { method: 'PUT', body: widgets }),
+
+  listSections: () => request('/sections'),
+  createSection: (payload) => request('/sections', { method: 'POST', body: payload }),
+  updateSection: (id, payload) => request(`/sections/${id}`, { method: 'PUT', body: payload }),
+  deleteSection: (id) => request(`/sections/${id}`, { method: 'DELETE' }),
+
+  listSources: (includeInactive = false) => request(`/sources${includeInactive ? '?includeInactive=true' : ''}`),
+  createSource: (payload) => request('/sources', { method: 'POST', body: payload }),
+  updateSource: (id, payload) => request(`/sources/${id}`, { method: 'PUT', body: payload }),
+  deactivateSource: (id) => request(`/sources/${id}/deactivate`, { method: 'POST' }),
+  reactivateSource: (id) => request(`/sources/${id}/reactivate`, { method: 'POST' }),
+  mergeSource: (id, intoId) => request(`/sources/${id}/merge`, { method: 'POST', body: { intoId } }),
+
+  listUnits: (includeInactive = false) => request(`/units${includeInactive ? '?includeInactive=true' : ''}`),
+  createUnit: (payload) => request('/units', { method: 'POST', body: payload }),
+  updateUnit: (id, payload) => request(`/units/${id}`, { method: 'PUT', body: payload }),
+  deactivateUnit: (id) => request(`/units/${id}/deactivate`, { method: 'POST' }),
+  reactivateUnit: (id) => request(`/units/${id}/reactivate`, { method: 'POST' }),
+  mergeUnit: (id, intoId) => request(`/units/${id}/merge`, { method: 'POST', body: { intoId } }),
 };

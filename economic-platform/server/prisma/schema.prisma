@@ -30,6 +30,13 @@ enum WidgetType {
   LINE_CHART
   BAR_CHART
   TABLE
+  CONTENT
+}
+
+enum LayoutTemplate {
+  ONE_COL
+  TWO_COL
+  GRID
 }
 
 model User {
@@ -54,15 +61,63 @@ model IndicatorCategory {
   indicators  Indicator[]
 }
 
+// DU-01: pages (Views) are created under a Section.
+model Section {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  views View[]
+}
+
+// DU-04: Source and Unit are first-class, deactivatable, mergeable entities
+// (replacing the old free-text Indicator.source/sourceUrl/unit fields), so an
+// indicator can carry multiple sources/units with per-link attribution.
+model Source {
+  id  String  @id @default(uuid())
+  name String @unique
+  url  String?
+  active Boolean @default(true)
+
+  mergedIntoId String?
+  mergedInto   Source?  @relation("SourceMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom   Source[] @relation("SourceMerge")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  indicators IndicatorSource[]
+}
+
+model Unit {
+  id     String  @id @default(uuid())
+  name   String  @unique
+  symbol String?
+  active Boolean @default(true)
+
+  mergedIntoId String?
+  mergedInto   Unit?  @relation("UnitMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom   Unit[] @relation("UnitMerge")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  indicators IndicatorUnit[]
+}
+
 model Indicator {
   id          String    @id @default(uuid())
   code        String    @unique
   name        String
   description String?
-  unit        String
   frequency   Frequency
-  source      String?
-  sourceUrl   String?
+
+  // DU-03 Mode 2 (Target): the long-term target is a single value per
+  // indicator (e.g. a 2030 goal); interval targets live in the Target model.
+  longTermTargetLabel String? @default("Long-term target")
+  longTermTargetValue Float?
 
   categoryId String
   category   IndicatorCategory @relation(fields: [categoryId], references: [id])
@@ -73,8 +128,37 @@ model Indicator {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  dataPoints   IndicatorDataPoint[]
-  viewWidgets  ViewWidgetIndicator[]
+  dataPoints  IndicatorDataPoint[]
+  viewWidgets ViewWidgetIndicator[]
+  units       IndicatorUnit[]
+  sources     IndicatorSource[]
+  targets     Target[]
+  forecasts   Forecast[]
+  baselines   Baseline[]
+}
+
+model IndicatorUnit {
+  id          String    @id @default(uuid())
+  indicatorId String
+  indicator   Indicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  unitId      String
+  unit        Unit      @relation(fields: [unitId], references: [id])
+  isPrimary   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@unique([indicatorId, unitId])
+}
+
+model IndicatorSource {
+  id          String    @id @default(uuid())
+  indicatorId String
+  indicator   Indicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  sourceId    String
+  source      Source    @relation(fields: [sourceId], references: [id])
+  note        String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([indicatorId, sourceId])
 }
 
 model IndicatorDataPoint {
@@ -90,12 +174,69 @@ model IndicatorDataPoint {
   @@index([indicatorId, period])
 }
 
+// DU-10: interval-level target entry (Forecast mirrors this structure).
+model Target {
+  id          String    @id @default(uuid())
+  indicatorId String
+  indicator   Indicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  period      DateTime
+  value       Float
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([indicatorId, period])
+  @@index([indicatorId, period])
+}
+
+// DU-10: rolling forecast — a new forecast for a period never overwrites the
+// previous one, it adds a new version. The "current" forecast for a period is
+// the row with the highest version.
+model Forecast {
+  id          String    @id @default(uuid())
+  indicatorId String
+  indicator   Indicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  period      DateTime
+  value       Float
+  version     Int
+  createdAt   DateTime  @default(now())
+
+  @@unique([indicatorId, period, version])
+  @@index([indicatorId, period])
+}
+
+// DU-08: multiple baselines per indicator. Past values are never edited, only
+// superseded (supersedesId points at the baseline this one replaces).
+model Baseline {
+  id           String    @id @default(uuid())
+  indicatorId  String
+  indicator    Indicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  label        String
+  value        Float
+  period       DateTime
+  intervalType Frequency
+  active       Boolean   @default(false)
+
+  supersedesId String?   @unique
+  supersedes   Baseline? @relation("BaselineSupersede", fields: [supersedesId], references: [id])
+  supersededBy Baseline? @relation("BaselineSupersede")
+
+  createdAt DateTime @default(now())
+
+  @@index([indicatorId])
+}
+
 model View {
-  id          String     @id @default(uuid())
-  slug        String     @unique
+  id          String         @id @default(uuid())
+  slug        String         @unique
   title       String
   description String?
-  visibility  Visibility @default(PRIVATE)
+  visibility  Visibility     @default(PRIVATE)
+  published   Boolean        @default(true)
+  layoutTemplate LayoutTemplate @default(ONE_COL)
+  gridColumns Int            @default(4)
+
+  sectionId String?
+  section   Section? @relation(fields: [sectionId], references: [id])
 
   ownerId String
   owner   User   @relation("ViewOwner", fields: [ownerId], references: [id])
@@ -114,6 +255,16 @@ model ViewWidget {
   type   WidgetType
   title  String?
   config Json?
+
+  // Free-form content block (DU-01), used only when type = CONTENT.
+  contentHtml String?
+
+  // Collage grid position (DU-02), used only when the parent View's
+  // layoutTemplate is GRID. Null columnStart/rowStart means "auto-flow".
+  columnStart Int?
+  columnSpan  Int  @default(1)
+  rowStart    Int?
+  rowSpan     Int  @default(1)
 
   indicators ViewWidgetIndicator[]
 

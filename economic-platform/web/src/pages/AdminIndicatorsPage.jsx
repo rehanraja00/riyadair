@@ -2,15 +2,18 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { primaryUnit } from '../lib/indicatorFormat.js';
 
 const FREQUENCIES = ['MONTHLY', 'QUARTERLY', 'ANNUAL'];
 
-const emptyForm = { code: '', name: '', description: '', unit: '', frequency: 'MONTHLY', source: '', sourceUrl: '', categoryId: '' };
+const emptyForm = { code: '', name: '', description: '', unitId: '', sourceId: '', frequency: 'MONTHLY', categoryId: '' };
 
 export default function AdminIndicatorsPage() {
   const { hasRole } = useAuth();
   const [indicators, setIndicators] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [units, setUnits] = useState([]);
+  const [sources, setSources] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
 
@@ -21,13 +24,23 @@ export default function AdminIndicatorsPage() {
   useEffect(() => {
     reload();
     api.listCategories().then(setCategories).catch(() => {});
+    api.listUnits().then(setUnits).catch(() => {});
+    api.listSources().then(setSources).catch(() => {});
   }, []);
 
   async function onCreate(e) {
     e.preventDefault();
     setError('');
     try {
-      await api.createIndicator({ ...form, sourceUrl: form.sourceUrl || undefined });
+      await api.createIndicator({
+        code: form.code,
+        name: form.name,
+        description: form.description || undefined,
+        frequency: form.frequency,
+        categoryId: form.categoryId,
+        units: [{ unitId: form.unitId, isPrimary: true }],
+        sources: form.sourceId ? [{ sourceId: form.sourceId, note: 'Primary' }] : [],
+      });
       setForm(emptyForm);
       reload();
     } catch (err) {
@@ -50,6 +63,7 @@ export default function AdminIndicatorsPage() {
       {hasRole('EDITOR') && (
         <form className="form-card" onSubmit={onCreate}>
           <h3>New indicator</h3>
+          <p className="auth-note">Add more sources/units, targets, forecasts, and baselines from the Manage screen after creating.</p>
           <div className="form-grid">
             <label>
               Code
@@ -60,8 +74,17 @@ export default function AdminIndicatorsPage() {
               <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
             </label>
             <label>
-              Unit
-              <input value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))} required />
+              Primary unit
+              <select value={form.unitId} onChange={(e) => setForm((f) => ({ ...f, unitId: e.target.value }))} required>
+                <option value="" disabled>
+                  Select…
+                </option>
+                {units.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} {u.symbol ? `(${u.symbol})` : ''}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               Frequency
@@ -88,11 +111,14 @@ export default function AdminIndicatorsPage() {
             </label>
             <label>
               Source
-              <input value={form.source} onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))} />
-            </label>
-            <label>
-              Source URL
-              <input value={form.sourceUrl} onChange={(e) => setForm((f) => ({ ...f, sourceUrl: e.target.value }))} />
+              <select value={form.sourceId} onChange={(e) => setForm((f) => ({ ...f, sourceId: e.target.value }))}>
+                <option value="">None yet</option>
+                {sources.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
           <label>
@@ -110,6 +136,7 @@ export default function AdminIndicatorsPage() {
             <th>Code</th>
             <th>Name</th>
             <th>Category</th>
+            <th>Unit</th>
             <th>Points</th>
             <th />
           </tr>
@@ -120,6 +147,7 @@ export default function AdminIndicatorsPage() {
               <td>{i.code}</td>
               <td>{i.name}</td>
               <td>{i.category.name}</td>
+              <td>{primaryUnit(i)?.symbol || primaryUnit(i)?.name || '—'}</td>
               <td>{i._count.dataPoints}</td>
               <td className="admin-row-actions">
                 <Link to={`/admin/indicators/${i.id}`}>Manage</Link>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client.js';
+import IntervalPointsEditor from '../components/IntervalPointsEditor.jsx';
 
 const FREQUENCIES = ['MONTHLY', 'QUARTERLY', 'ANNUAL'];
 
@@ -8,11 +9,15 @@ export default function AdminIndicatorDetailPage() {
   const { id } = useParams();
   const [indicator, setIndicator] = useState(null);
   const [categories, setCategories] = useState([]);
+  const [units, setUnits] = useState([]);
+  const [sources, setSources] = useState([]);
   const [form, setForm] = useState(null);
-  const [newPoint, setNewPoint] = useState({ period: '', value: '' });
-  const [csv, setCsv] = useState('');
+  const [unitSelection, setUnitSelection] = useState({}); // unitId -> true
+  const [primaryUnitId, setPrimaryUnitId] = useState('');
+  const [sourceSelection, setSourceSelection] = useState({}); // sourceId -> note
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [baselineForm, setBaselineForm] = useState({ label: '', value: '', period: '', intervalType: 'ANNUAL', supersedesId: '' });
 
   function reload() {
     api
@@ -23,12 +28,22 @@ export default function AdminIndicatorDetailPage() {
           code: i.code,
           name: i.name,
           description: i.description || '',
-          unit: i.unit,
           frequency: i.frequency,
-          source: i.source || '',
-          sourceUrl: i.sourceUrl || '',
           categoryId: i.categoryId,
+          longTermTargetLabel: i.longTermTargetLabel || '',
+          longTermTargetValue: i.longTermTargetValue ?? '',
         });
+        const uSel = {};
+        i.units.forEach((u) => {
+          uSel[u.unitId] = true;
+        });
+        setUnitSelection(uSel);
+        setPrimaryUnitId((i.units.find((u) => u.isPrimary) || i.units[0])?.unitId || '');
+        const sSel = {};
+        i.sources.forEach((s) => {
+          sSel[s.sourceId] = s.note || '';
+        });
+        setSourceSelection(sSel);
       })
       .catch((err) => setError(err.message));
   }
@@ -36,13 +51,27 @@ export default function AdminIndicatorDetailPage() {
   useEffect(() => {
     reload();
     api.listCategories().then(setCategories).catch(() => {});
+    api.listUnits().then(setUnits).catch(() => {});
+    api.listSources().then(setSources).catch(() => {});
   }, [id]);
 
   async function onSaveMeta(e) {
     e.preventDefault();
     setError('');
+    const unitIds = Object.keys(unitSelection).filter((k) => unitSelection[k]);
+    if (unitIds.length === 0) {
+      setError('At least one unit is required.');
+      return;
+    }
     try {
-      await api.updateIndicator(id, { ...form, sourceUrl: form.sourceUrl || undefined });
+      await api.updateIndicator(id, {
+        ...form,
+        longTermTargetValue: form.longTermTargetValue === '' ? undefined : Number(form.longTermTargetValue),
+        units: unitIds.map((unitId) => ({ unitId, isPrimary: unitId === primaryUnitId })),
+        sources: Object.keys(sourceSelection)
+          .filter((k) => sourceSelection[k] !== undefined)
+          .map((sourceId) => ({ sourceId, note: sourceSelection[sourceId] || undefined })),
+      });
       setNotice('Saved.');
       reload();
     } catch (err) {
@@ -50,41 +79,44 @@ export default function AdminIndicatorDetailPage() {
     }
   }
 
-  async function onAddPoint(e) {
+  function toggleUnit(unitId) {
+    setUnitSelection((sel) => {
+      const next = { ...sel, [unitId]: !sel[unitId] };
+      if (!next[unitId] && primaryUnitId === unitId) setPrimaryUnitId('');
+      return next;
+    });
+  }
+
+  function toggleSource(sourceId) {
+    setSourceSelection((sel) => {
+      const next = { ...sel };
+      if (next[sourceId] !== undefined) delete next[sourceId];
+      else next[sourceId] = '';
+      return next;
+    });
+  }
+
+  async function onAddBaseline(e) {
     e.preventDefault();
     setError('');
     try {
-      await api.addDataPoints(id, { period: newPoint.period, value: Number(newPoint.value) });
-      setNewPoint({ period: '', value: '' });
+      await api.addBaseline(id, {
+        label: baselineForm.label,
+        value: Number(baselineForm.value),
+        period: baselineForm.period,
+        intervalType: baselineForm.intervalType,
+        supersedesId: baselineForm.supersedesId || undefined,
+      });
+      setBaselineForm({ label: '', value: '', period: '', intervalType: 'ANNUAL', supersedesId: '' });
       reload();
     } catch (err) {
       setError(err.message);
     }
   }
 
-  async function onBulkAdd() {
-    setError('');
+  async function onActivateBaseline(baselineId) {
     try {
-      const points = csv
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => {
-          const [period, value] = line.split(',').map((s) => s.trim());
-          return { period, value: Number(value) };
-        });
-      if (points.length === 0) throw new Error('Paste at least one "date,value" line.');
-      await api.addDataPoints(id, points);
-      setCsv('');
-      reload();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  async function onDeletePoint(pointId) {
-    try {
-      await api.deleteDataPoint(id, pointId);
+      await api.activateBaseline(id, baselineId);
       reload();
     } catch (err) {
       setError(err.message);
@@ -115,10 +147,6 @@ export default function AdminIndicatorDetailPage() {
             <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
           </label>
           <label>
-            Unit
-            <input value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))} required />
-          </label>
-          <label>
             Frequency
             <select value={form.frequency} onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value }))}>
               {FREQUENCIES.map((freq) => (
@@ -139,80 +167,194 @@ export default function AdminIndicatorDetailPage() {
             </select>
           </label>
           <label>
-            Source
-            <input value={form.source} onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))} />
+            Long-term target label
+            <input
+              value={form.longTermTargetLabel}
+              onChange={(e) => setForm((f) => ({ ...f, longTermTargetLabel: e.target.value }))}
+            />
           </label>
           <label>
-            Source URL
-            <input value={form.sourceUrl} onChange={(e) => setForm((f) => ({ ...f, sourceUrl: e.target.value }))} />
+            Long-term target value
+            <input
+              type="number"
+              step="any"
+              value={form.longTermTargetValue}
+              onChange={(e) => setForm((f) => ({ ...f, longTermTargetValue: e.target.value }))}
+            />
           </label>
         </div>
         <label>
           Description
           <textarea rows={2} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
         </label>
+
+        <div>
+          <strong>Units</strong> <span className="auth-note">(pick a primary)</span>
+          <div className="indicator-checklist">
+            {units.map((u) => (
+              <label key={u.id} className="checklist-item">
+                <input type="checkbox" checked={!!unitSelection[u.id]} onChange={() => toggleUnit(u.id)} />
+                {u.name} {u.symbol ? `(${u.symbol})` : ''}
+                {unitSelection[u.id] && (
+                  <input
+                    type="radio"
+                    name="primaryUnit"
+                    checked={primaryUnitId === u.id}
+                    onChange={() => setPrimaryUnitId(u.id)}
+                    title="Primary unit"
+                    style={{ marginLeft: '0.4rem' }}
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <strong>Sources</strong> <span className="auth-note">(multiple sources supported, each with an attribution note)</span>
+          <div className="indicator-checklist">
+            {sources.map((s) => (
+              <label key={s.id} className="checklist-item">
+                <input type="checkbox" checked={sourceSelection[s.id] !== undefined} onChange={() => toggleSource(s.id)} />
+                {s.name}
+                {sourceSelection[s.id] !== undefined && (
+                  <input
+                    placeholder="note (e.g. Primary)"
+                    value={sourceSelection[s.id]}
+                    onChange={(e) => setSourceSelection((sel) => ({ ...sel, [s.id]: e.target.value }))}
+                    style={{ marginLeft: '0.4rem', width: '8rem' }}
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+        </div>
+
         {notice && <div className="form-notice">{notice}</div>}
+        {error && <div className="form-error">{error}</div>}
         <button type="submit">Save metadata</button>
       </form>
 
       <div className="panel">
-        <h3>Add a data point</h3>
-        <form className="inline-form" onSubmit={onAddPoint}>
+        <h3>Data points ({indicator.dataPoints.length})</h3>
+        <IntervalPointsEditor
+          points={indicator.dataPoints}
+          onAdd={(p) => api.addDataPoints(id, p).then(reload)}
+          onBulkAdd={(pts) => api.addDataPoints(id, pts).then(reload)}
+          onDelete={(pointId) => api.deleteDataPoint(id, pointId).then(reload)}
+        />
+      </div>
+
+      <div className="panel">
+        <h3>Targets ({indicator.targets.length})</h3>
+        <p className="auth-note">Interval-level targets — the plan/budget for each period, shown alongside actuals and forecasts.</p>
+        <IntervalPointsEditor
+          points={indicator.targets}
+          onAdd={(p) => api.addTargets(id, p).then(reload)}
+          onBulkAdd={(pts) => api.addTargets(id, pts).then(reload)}
+          onDelete={(targetId) => api.deleteTarget(id, targetId).then(reload)}
+        />
+      </div>
+
+      <div className="panel">
+        <h3>Forecasts ({indicator.forecasts.length})</h3>
+        <p className="auth-note">
+          Rolling forecast — saving never overwrites a prior forecast, it adds a new version. The table shows the latest version per period.
+        </p>
+        <IntervalPointsEditor
+          points={indicator.forecasts}
+          onAdd={(p) => api.addForecast(id, p).then(reload)}
+          onBulkAdd={(pts) => api.addForecast(id, pts).then(reload)}
+          extraColumnLabel="Version"
+          extraColumn={(p) => p.version}
+        />
+      </div>
+
+      <div className="panel">
+        <h3>Baselines ({indicator.baselines.length})</h3>
+        <p className="auth-note">
+          Baselines are never edited — add a new one, optionally marking which baseline it supersedes. Only one baseline is
+          &ldquo;active&rdquo; (the widget-level default) at a time.
+        </p>
+        <form className="inline-form" onSubmit={onAddBaseline}>
           <input
-            type="date"
-            value={newPoint.period}
-            onChange={(e) => setNewPoint((p) => ({ ...p, period: e.target.value }))}
+            placeholder="Label"
+            value={baselineForm.label}
+            onChange={(e) => setBaselineForm((f) => ({ ...f, label: e.target.value }))}
             required
           />
           <input
             type="number"
             step="any"
             placeholder="Value"
-            value={newPoint.value}
-            onChange={(e) => setNewPoint((p) => ({ ...p, value: e.target.value }))}
+            value={baselineForm.value}
+            onChange={(e) => setBaselineForm((f) => ({ ...f, value: e.target.value }))}
             required
           />
-          <button type="submit">Add point</button>
+          <input
+            type="date"
+            value={baselineForm.period}
+            onChange={(e) => setBaselineForm((f) => ({ ...f, period: e.target.value }))}
+            required
+          />
+          <select
+            value={baselineForm.intervalType}
+            onChange={(e) => setBaselineForm((f) => ({ ...f, intervalType: e.target.value }))}
+          >
+            {FREQUENCIES.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+          <select
+            value={baselineForm.supersedesId}
+            onChange={(e) => setBaselineForm((f) => ({ ...f, supersedesId: e.target.value }))}
+          >
+            <option value="">Not superseding any baseline</option>
+            {indicator.baselines
+              .filter((b) => !indicator.baselines.some((other) => other.supersedesId === b.id))
+              .map((b) => (
+                <option key={b.id} value={b.id}>
+                  Supersedes: {b.label}
+                </option>
+              ))}
+          </select>
+          <button type="submit">Add baseline</button>
         </form>
 
-        <h4>Bulk paste (CSV: date,value per line)</h4>
-        <textarea
-          rows={4}
-          placeholder={'2024-01-01,3.2\n2024-02-01,3.4'}
-          value={csv}
-          onChange={(e) => setCsv(e.target.value)}
-        />
-        <button type="button" className="btn-secondary" onClick={onBulkAdd}>
-          Import points
-        </button>
-      </div>
-
-      {error && <div className="form-error">{error}</div>}
-
-      <div className="panel">
-        <h3>Data points ({indicator.dataPoints.length})</h3>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Period</th>
-              <th>Value</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {[...indicator.dataPoints].reverse().map((p) => (
-              <tr key={p.id}>
-                <td>{new Date(p.period).toLocaleDateString()}</td>
-                <td>{p.value}</td>
-                <td>
-                  <button type="button" className="btn-danger" onClick={() => onDeletePoint(p.id)}>
-                    Remove
-                  </button>
-                </td>
+        {indicator.baselines.length > 0 && (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Label</th>
+                <th>Value</th>
+                <th>Period</th>
+                <th>Interval</th>
+                <th>Status</th>
+                <th />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {indicator.baselines.map((b) => (
+                <tr key={b.id}>
+                  <td>{b.label}</td>
+                  <td>{b.value}</td>
+                  <td>{new Date(b.period).toLocaleDateString()}</td>
+                  <td>{b.intervalType}</td>
+                  <td>{b.active ? <span className="pill">Active</span> : '—'}</td>
+                  <td>
+                    {!b.active && (
+                      <button type="button" className="btn-secondary" onClick={() => onActivateBaseline(b.id)}>
+                        Set active
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

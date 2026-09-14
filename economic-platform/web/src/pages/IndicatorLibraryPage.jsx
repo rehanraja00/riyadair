@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client.js';
+import { unitLabel } from '../lib/indicatorFormat.js';
 
 export default function IndicatorLibraryPage() {
   const [indicators, setIndicators] = useState([]);
@@ -68,7 +69,7 @@ export default function IndicatorLibraryPage() {
               {indicator.description && <p className="indicator-desc">{indicator.description}</p>}
               <div className="indicator-card-bottom">
                 <span>{indicator._count.dataPoints} observations</span>
-                <span>{indicator.unit}</span>
+                <span>{unitLabel(indicator)}</span>
               </div>
             </Link>
           ))}

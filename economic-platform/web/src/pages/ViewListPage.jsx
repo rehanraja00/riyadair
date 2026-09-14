@@ -4,18 +4,22 @@ import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function ViewListPage() {
-  const { hasRole } = useAuth();
+  const { hasRole, loading: authLoading } = useAuth();
   const [views, setViews] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // Wait for AuthContext to restore the token from localStorage first — on a
+  // hard page load its effect can otherwise fire after this one, so an
+  // owner's own private/shared views would be fetched as if signed out.
   useEffect(() => {
+    if (authLoading) return;
     api
       .listViews()
       .then(setViews)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [authLoading]);
 
   return (
     <div>

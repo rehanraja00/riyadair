@@ -13,6 +13,9 @@ import AdminPage from './pages/AdminPage.jsx';
 import AdminIndicatorsPage from './pages/AdminIndicatorsPage.jsx';
 import AdminIndicatorDetailPage from './pages/AdminIndicatorDetailPage.jsx';
 import AdminCategoriesPage from './pages/AdminCategoriesPage.jsx';
+import AdminSectionsPage from './pages/AdminSectionsPage.jsx';
+import AdminSourcesPage from './pages/AdminSourcesPage.jsx';
+import AdminUnitsPage from './pages/AdminUnitsPage.jsx';
 
 export default function App() {
   return (
@@ -56,6 +59,9 @@ export default function App() {
           <Route path="indicators" element={<AdminIndicatorsPage />} />
           <Route path="indicators/:id" element={<AdminIndicatorDetailPage />} />
           <Route path="categories" element={<AdminCategoriesPage />} />
+          <Route path="sections" element={<AdminSectionsPage />} />
+          <Route path="sources" element={<AdminSourcesPage />} />
+          <Route path="units" element={<AdminUnitsPage />} />
         </Route>
 
         <Route path="*" element={<div className="page-state">Page not found.</div>} />

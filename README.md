@@ -1,4 +1,4 @@
-# Gulf Aviation Competitive Tracking Dashboard
+# Gulf Aviation Competitive Tracking Dashboard.
 
 A production-oriented React dashboard for tracking the competitive threat from Riyadh Air and King Salman International Airport against Qatar Airways and Emirates.
 

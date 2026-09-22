@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
-import { useAuth } from '../context/AuthContext.jsx';
 
 export default function AdminSectionsPage() {
-  const { hasRole } = useAuth();
   const [sections, setSections] = useState([]);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
@@ -42,12 +40,10 @@ export default function AdminSectionsPage() {
         <p>Pages (Views) are created under a section — the top level of the dashboard navigation.</p>
       </div>
 
-      {hasRole('EDITOR') && (
-        <form className="form-card inline-form" onSubmit={onCreate}>
-          <input placeholder="Section name" value={name} onChange={(e) => setName(e.target.value)} required />
-          <button type="submit">Add section</button>
-        </form>
-      )}
+      <form className="form-card inline-form" onSubmit={onCreate}>
+        <input placeholder="Section name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <button type="submit">Add section</button>
+      </form>
       {error && <div className="form-error">{error}</div>}
 
       <table className="admin-table">
@@ -56,7 +52,7 @@ export default function AdminSectionsPage() {
             <th>Name</th>
             <th>Slug</th>
             <th>Pages</th>
-            {hasRole('ADMIN') && <th />}
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -65,13 +61,11 @@ export default function AdminSectionsPage() {
               <td>{s.name}</td>
               <td>{s.slug}</td>
               <td>{s._count.views}</td>
-              {hasRole('ADMIN') && (
-                <td>
-                  <button type="button" className="btn-danger" onClick={() => onDelete(s.id)}>
-                    Delete
-                  </button>
-                </td>
-              )}
+              <td>
+                <button type="button" className="btn-danger" onClick={() => onDelete(s.id)}>
+                  Delete
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>

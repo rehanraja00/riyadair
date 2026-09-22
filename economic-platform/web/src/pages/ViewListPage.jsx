@@ -1,25 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client.js';
-import { useAuth } from '../context/AuthContext.jsx';
 
 export default function ViewListPage() {
-  const { hasRole, loading: authLoading } = useAuth();
   const [views, setViews] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Wait for AuthContext to restore the token from localStorage first — on a
-  // hard page load its effect can otherwise fire after this one, so an
-  // owner's own private/shared views would be fetched as if signed out.
   useEffect(() => {
-    if (authLoading) return;
     api
       .listViews()
       .then(setViews)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [authLoading]);
+  }, []);
 
   return (
     <div>
@@ -28,11 +22,9 @@ export default function ViewListPage() {
           <h1>Views</h1>
           <p>Customizable dashboards built from the indicator library.</p>
         </div>
-        {hasRole('EDITOR') && (
-          <Link to="/views/new" className="btn-primary">
-            + New view
-          </Link>
-        )}
+        <Link to="/views/new" className="btn-primary">
+          + New view
+        </Link>
       </div>
 
       {error && <div className="page-state error">{error}</div>}
@@ -45,14 +37,11 @@ export default function ViewListPage() {
           {views.map((view) => (
             <Link to={`/views/${view.slug}`} key={view.id} className="view-card">
               <div className="indicator-card-top">
-                <span className="pill">{view.visibility}</span>
+                {view.section && <span className="pill">{view.section.name}</span>}
                 <span className="pill muted">{view._count.widgets} widgets</span>
               </div>
               <h3>{view.title}</h3>
               {view.description && <p className="indicator-desc">{view.description}</p>}
-              <div className="indicator-card-bottom">
-                <span>by {view.owner.name}</span>
-              </div>
             </Link>
           ))}
         </div>

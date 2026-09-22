@@ -1,17 +1,10 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
-let authToken = null;
-
-export function setAuthToken(token) {
-  authToken = token;
-}
-
 async function request(path, { method = 'GET', body, headers = {} } = {}) {
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...headers,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -31,10 +24,6 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
 }
 
 export const api = {
-  register: (payload) => request('/auth/register', { method: 'POST', body: payload }),
-  login: (payload) => request('/auth/login', { method: 'POST', body: payload }),
-  me: () => request('/auth/me'),
-
   listCategories: () => request('/categories'),
   createCategory: (payload) => request('/categories', { method: 'POST', body: payload }),
   updateCategory: (id, payload) => request(`/categories/${id}`, { method: 'PUT', body: payload }),

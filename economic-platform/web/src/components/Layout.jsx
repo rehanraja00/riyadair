@@ -1,10 +1,6 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
+import { NavLink, Outlet } from 'react-router-dom';
 
 export default function Layout() {
-  const { user, logout, hasRole } = useAuth();
-  const navigate = useNavigate();
-
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -22,33 +18,10 @@ export default function Layout() {
           <NavLink to="/indicators" className={({ isActive }) => (isActive ? 'active' : '')}>
             Indicators
           </NavLink>
-          {hasRole('EDITOR') && (
-            <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>
-              Admin
-            </NavLink>
-          )}
+          <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Admin
+          </NavLink>
         </nav>
-        <div className="app-user">
-          {user ? (
-            <>
-              <span className="user-chip">
-                {user.name} <span className="role-badge">{user.role}</span>
-              </span>
-              <button
-                type="button"
-                className="btn-link"
-                onClick={() => {
-                  logout();
-                  navigate('/login');
-                }}
-              >
-                Sign out
-              </button>
-            </>
-          ) : (
-            <NavLink to="/login">Sign in</NavLink>
-          )}
-        </div>
       </header>
       <main className="app-main">
         <Outlet />

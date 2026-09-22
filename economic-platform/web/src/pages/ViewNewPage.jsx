@@ -6,7 +6,6 @@ export default function ViewNewPage() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [visibility, setVisibility] = useState('PRIVATE');
   const [sectionId, setSectionId] = useState('');
   const [layoutTemplate, setLayoutTemplate] = useState('ONE_COL');
   const [published, setPublished] = useState(true);
@@ -26,7 +25,6 @@ export default function ViewNewPage() {
       const view = await api.createView({
         title,
         description,
-        visibility,
         sectionId: sectionId || undefined,
         layoutTemplate,
         published,
@@ -75,14 +73,6 @@ export default function ViewNewPage() {
               <option value="ONE_COL">One column</option>
               <option value="TWO_COL">Two column</option>
               <option value="GRID">Collage grid</option>
-            </select>
-          </label>
-          <label>
-            Visibility
-            <select value={visibility} onChange={(e) => setVisibility(e.target.value)}>
-              <option value="PRIVATE">Private (only me)</option>
-              <option value="SHARED">Shared (any signed-in user)</option>
-              <option value="PUBLIC">Public (anyone)</option>
             </select>
           </label>
         </div>

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client.js';
-import { useAuth } from '../context/AuthContext.jsx';
 import { primaryUnit } from '../lib/indicatorFormat.js';
 
 const FREQUENCIES = ['MONTHLY', 'QUARTERLY', 'ANNUAL'];
@@ -9,7 +8,6 @@ const FREQUENCIES = ['MONTHLY', 'QUARTERLY', 'ANNUAL'];
 const emptyForm = { code: '', name: '', description: '', unitId: '', sourceId: '', frequency: 'MONTHLY', categoryId: '' };
 
 export default function AdminIndicatorsPage() {
-  const { hasRole } = useAuth();
   const [indicators, setIndicators] = useState([]);
   const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
@@ -60,10 +58,9 @@ export default function AdminIndicatorsPage() {
 
   return (
     <div>
-      {hasRole('EDITOR') && (
-        <form className="form-card" onSubmit={onCreate}>
-          <h3>New indicator</h3>
-          <p className="auth-note">Add more sources/units, targets, forecasts, and baselines from the Manage screen after creating.</p>
+      <form className="form-card" onSubmit={onCreate}>
+        <h3>New indicator</h3>
+        <p className="helper-note">Add more sources/units, targets, forecasts, and baselines from the Manage screen after creating.</p>
           <div className="form-grid">
             <label>
               Code
@@ -127,7 +124,6 @@ export default function AdminIndicatorsPage() {
           </label>
           <button type="submit">Add indicator</button>
         </form>
-      )}
       {error && <div className="form-error">{error}</div>}
 
       <table className="admin-table">
@@ -151,11 +147,9 @@ export default function AdminIndicatorsPage() {
               <td>{i._count.dataPoints}</td>
               <td className="admin-row-actions">
                 <Link to={`/admin/indicators/${i.id}`}>Manage</Link>
-                {hasRole('ADMIN') && (
-                  <button type="button" className="btn-danger" onClick={() => onDelete(i.id)}>
-                    Delete
-                  </button>
-                )}
+                <button type="button" className="btn-danger" onClick={() => onDelete(i.id)}>
+                  Delete
+                </button>
               </td>
             </tr>
           ))}

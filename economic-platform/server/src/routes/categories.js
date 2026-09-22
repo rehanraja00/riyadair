@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db.js';
-import { authenticate, requireRole } from '../middleware/auth.js';
 
 export const categoriesRouter = Router();
 
@@ -26,7 +25,7 @@ const categorySchema = z.object({
   description: z.string().optional(),
 });
 
-categoriesRouter.post('/', authenticate, requireRole('EDITOR'), async (req, res) => {
+categoriesRouter.post('/', async (req, res) => {
   const parsed = categorySchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -43,7 +42,7 @@ categoriesRouter.post('/', authenticate, requireRole('EDITOR'), async (req, res)
   res.status(201).json(category);
 });
 
-categoriesRouter.put('/:id', authenticate, requireRole('EDITOR'), async (req, res) => {
+categoriesRouter.put('/:id', async (req, res) => {
   const parsed = categorySchema.partial().safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -59,7 +58,7 @@ categoriesRouter.put('/:id', authenticate, requireRole('EDITOR'), async (req, re
   }
 });
 
-categoriesRouter.delete('/:id', authenticate, requireRole('ADMIN'), async (req, res) => {
+categoriesRouter.delete('/:id', async (req, res) => {
   try {
     await prisma.indicatorCategory.delete({ where: { id: req.params.id } });
     res.status(204).end();

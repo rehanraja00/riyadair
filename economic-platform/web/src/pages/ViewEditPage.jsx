@@ -66,15 +66,10 @@ export default function ViewEditPage() {
   useEffect(() => {
     Promise.all([api.getView(slug), api.listIndicators(), api.listSections()])
       .then(([v, allIndicators, allSections]) => {
-        if (!v.canManage) {
-          setError("You don't have permission to edit this page.");
-          return;
-        }
         setView(v);
         setMeta({
           title: v.title,
           description: v.description || '',
-          visibility: v.visibility,
           published: v.published,
           sectionId: v.sectionId || '',
           layoutTemplate: v.layoutTemplate,
@@ -255,14 +250,6 @@ export default function ViewEditPage() {
               />
             </label>
           )}
-          <label>
-            Visibility
-            <select value={meta.visibility} onChange={(e) => setMeta((m) => ({ ...m, visibility: e.target.value }))}>
-              <option value="PRIVATE">Private (only me)</option>
-              <option value="SHARED">Shared (any signed-in user)</option>
-              <option value="PUBLIC">Public (anyone)</option>
-            </select>
-          </label>
         </div>
         <label className="checklist-item">
           <input
@@ -270,7 +257,7 @@ export default function ViewEditPage() {
             checked={meta.published}
             onChange={(e) => setMeta((m) => ({ ...m, published: e.target.checked }))}
           />
-          Published (uncheck to keep as a draft, visible only to you)
+          Published (uncheck to keep as a draft, hidden from the main list but still reachable by its link)
         </label>
         <button type="submit" disabled={busy}>
           Save details

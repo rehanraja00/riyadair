@@ -2,24 +2,19 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client.js';
 import Widget from '../components/Widget.jsx';
-import { useAuth } from '../context/AuthContext.jsx';
 
 export default function ViewDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { loading: authLoading } = useAuth();
   const [view, setView] = useState(null);
   const [error, setError] = useState('');
 
-  // See ViewListPage: wait for the token restore so a private/shared view's
-  // owner doesn't get "not found" on a hard page load or refresh.
   useEffect(() => {
-    if (authLoading) return;
     api
       .getView(slug)
       .then(setView)
       .catch((err) => setError(err.message));
-  }, [slug, authLoading]);
+  }, [slug]);
 
   async function onDelete() {
     if (!window.confirm(`Delete view "${view.title}"? This cannot be undone.`)) return;
@@ -37,26 +32,23 @@ export default function ViewDetailPage() {
       </Link>
       <div className="page-header row">
         <div>
-          <span className="pill">{view.visibility}</span>
+          {view.section && <span className="pill">{view.section.name}</span>}
           <h1>{view.title}</h1>
           {view.description && <p>{view.description}</p>}
         </div>
-        {view.canManage && (
-          <div className="button-row">
-            <Link to={`/views/${view.slug}/edit`} className="btn-secondary">
-              Edit widgets
-            </Link>
-            <button type="button" className="btn-danger" onClick={onDelete}>
-              Delete
-            </button>
-          </div>
-        )}
+        <div className="button-row">
+          <Link to={`/views/${view.slug}/edit`} className="btn-secondary">
+            Edit widgets
+          </Link>
+          <button type="button" className="btn-danger" onClick={onDelete}>
+            Delete
+          </button>
+        </div>
       </div>
 
       {view.widgets.length === 0 ? (
         <div className="page-state">
-          This page has no widgets yet.{' '}
-          {view.canManage && <Link to={`/views/${view.slug}/edit`}>Add some.</Link>}
+          This page has no widgets yet. <Link to={`/views/${view.slug}/edit`}>Add some.</Link>
         </div>
       ) : view.layoutTemplate === 'GRID' ? (
         <div className="collage-grid" style={{ '--grid-cols': view.gridColumns }}>

@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { authRouter } from './routes/auth.js';
 import { categoriesRouter } from './routes/categories.js';
 import { indicatorsRouter } from './routes/indicators.js';
 import { viewsRouter } from './routes/views.js';
@@ -16,7 +15,6 @@ app.use(express.json());
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
-app.use('/api/auth', authRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/indicators', indicatorsRouter);
 app.use('/api/views', viewsRouter);

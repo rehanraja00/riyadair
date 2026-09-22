@@ -7,22 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  ADMIN
-  EDITOR
-  VIEWER
-}
-
 enum Frequency {
   MONTHLY
   QUARTERLY
   ANNUAL
-}
-
-enum Visibility {
-  PRIVATE
-  SHARED
-  PUBLIC
 }
 
 enum WidgetType {
@@ -37,19 +25,6 @@ enum LayoutTemplate {
   ONE_COL
   TWO_COL
   GRID
-}
-
-model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  role         Role     @default(VIEWER)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  indicatorsCreated Indicator[] @relation("IndicatorCreatedBy")
-  views             View[]      @relation("ViewOwner")
 }
 
 model IndicatorCategory {
@@ -121,9 +96,6 @@ model Indicator {
 
   categoryId String
   category   IndicatorCategory @relation(fields: [categoryId], references: [id])
-
-  createdById String?
-  createdBy   User?   @relation("IndicatorCreatedBy", fields: [createdById], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -230,16 +202,12 @@ model View {
   slug        String         @unique
   title       String
   description String?
-  visibility  Visibility     @default(PRIVATE)
   published   Boolean        @default(true)
   layoutTemplate LayoutTemplate @default(ONE_COL)
   gridColumns Int            @default(4)
 
   sectionId String?
   section   Section? @relation(fields: [sectionId], references: [id])
-
-  ownerId String
-  owner   User   @relation("ViewOwner", fields: [ownerId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

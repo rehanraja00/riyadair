@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext.jsx';
 
-// DU-04: Source and Unit management share the same CRUD + deactivate + merge
-// shape, so both admin screens are driven by this one component.
+// Source and Unit management share the same CRUD + deactivate + merge shape,
+// so both admin screens are driven by this one component.
 export default function ReferenceDataAdmin({ title, description, extraFieldKey, extraFieldLabel, api }) {
-  const { hasRole } = useAuth();
   const [items, setItems] = useState([]);
   const [name, setName] = useState('');
   const [extraValue, setExtraValue] = useState('');
@@ -62,17 +60,15 @@ export default function ReferenceDataAdmin({ title, description, extraFieldKey, 
         <p>{description}</p>
       </div>
 
-      {hasRole('EDITOR') && (
-        <form className="form-card inline-form" onSubmit={onCreate}>
-          <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
-          <input
-            placeholder={`${extraFieldLabel} (optional)`}
-            value={extraValue}
-            onChange={(e) => setExtraValue(e.target.value)}
-          />
-          <button type="submit">Add</button>
-        </form>
-      )}
+      <form className="form-card inline-form" onSubmit={onCreate}>
+        <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <input
+          placeholder={`${extraFieldLabel} (optional)`}
+          value={extraValue}
+          onChange={(e) => setExtraValue(e.target.value)}
+        />
+        <button type="submit">Add</button>
+      </form>
       {error && <div className="form-error">{error}</div>}
 
       <table className="admin-table">
@@ -82,8 +78,8 @@ export default function ReferenceDataAdmin({ title, description, extraFieldKey, 
             <th>{extraFieldLabel}</th>
             <th>Status</th>
             <th>Indicators</th>
-            {hasRole('ADMIN') && <th>Merge into</th>}
-            {hasRole('ADMIN') && <th />}
+            <th>Merge into</th>
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -101,37 +97,33 @@ export default function ReferenceDataAdmin({ title, description, extraFieldKey, 
                 )}
               </td>
               <td>{item._count.indicators}</td>
-              {hasRole('ADMIN') && (
-                <td>
-                  {item.active && (
-                    <select
-                      value={mergeTarget[item.id] || ''}
-                      onChange={(e) => setMergeTarget((m) => ({ ...m, [item.id]: e.target.value }))}
-                    >
-                      <option value="">Select…</option>
-                      {activeItems
-                        .filter((i) => i.id !== item.id)
-                        .map((i) => (
-                          <option key={i.id} value={i.id}>
-                            {i.name}
-                          </option>
-                        ))}
-                    </select>
-                  )}
-                </td>
-              )}
-              {hasRole('ADMIN') && (
-                <td className="admin-row-actions">
-                  {item.active && mergeTarget[item.id] && (
-                    <button type="button" className="btn-secondary" onClick={() => onMerge(item)}>
-                      Merge
-                    </button>
-                  )}
-                  <button type="button" className="btn-secondary" onClick={() => onToggleActive(item)}>
-                    {item.active ? 'Deactivate' : 'Reactivate'}
+              <td>
+                {item.active && (
+                  <select
+                    value={mergeTarget[item.id] || ''}
+                    onChange={(e) => setMergeTarget((m) => ({ ...m, [item.id]: e.target.value }))}
+                  >
+                    <option value="">Select…</option>
+                    {activeItems
+                      .filter((i) => i.id !== item.id)
+                      .map((i) => (
+                        <option key={i.id} value={i.id}>
+                          {i.name}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              </td>
+              <td className="admin-row-actions">
+                {item.active && mergeTarget[item.id] && (
+                  <button type="button" className="btn-secondary" onClick={() => onMerge(item)}>
+                    Merge
                   </button>
-                </td>
-              )}
+                )}
+                <button type="button" className="btn-secondary" onClick={() => onToggleActive(item)}>
+                  {item.active ? 'Deactivate' : 'Reactivate'}
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>

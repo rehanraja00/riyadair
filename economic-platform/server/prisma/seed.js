@@ -1,11 +1,7 @@
 import 'dotenv/config';
-import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-
-const ADMIN_EMAIL = 'rehanraja00@gmail.com';
-const ADMIN_PASSWORD = 'ChangeMe123!';
 
 const CATEGORIES = [
   { name: 'Growth', description: 'Output and activity indicators' },
@@ -97,7 +93,6 @@ async function upsertIndicator({
   description,
   frequency,
   categoryId,
-  createdById,
   series,
   unitId,
   sourceId,
@@ -114,7 +109,6 @@ async function upsertIndicator({
       description,
       frequency,
       categoryId,
-      createdById,
       longTermTargetLabel,
       longTermTargetValue,
     },
@@ -182,13 +176,6 @@ async function addForecast(indicatorId, points, version) {
 }
 
 async function main() {
-  const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
-  const admin = await prisma.user.upsert({
-    where: { email: ADMIN_EMAIL },
-    update: {},
-    create: { email: ADMIN_EMAIL, name: 'Platform Admin', passwordHash, role: 'ADMIN' },
-  });
-
   const categoryByName = {};
   for (const def of CATEGORIES) {
     categoryByName[def.name] = await upsertCategory(def);
@@ -216,7 +203,6 @@ async function main() {
     description: 'Year-over-year real GDP growth rate.',
     frequency: 'QUARTERLY',
     categoryId: categoryByName.Growth.id,
-    createdById: admin.id,
     unitId: unitByName.Percent.id,
     sourceId: sourceByName.GASTAT.id,
     sourceNote: 'Primary',
@@ -231,7 +217,6 @@ async function main() {
     description: 'Year-over-year consumer price index inflation.',
     frequency: 'MONTHLY',
     categoryId: categoryByName.Prices.id,
-    createdById: admin.id,
     unitId: unitByName.Percent.id,
     sourceId: sourceByName.GASTAT.id,
     sourceNote: 'Primary',
@@ -252,7 +237,6 @@ async function main() {
     description: 'Quarterly unemployment rate among Saudi nationals, seasonally unadjusted.',
     frequency: 'QUARTERLY',
     categoryId: categoryByName.Labor.id,
-    createdById: admin.id,
     unitId: unitByName.Percent.id,
     sourceId: sourceByName.GASTAT.id,
     sourceNote: 'Primary',
@@ -267,7 +251,6 @@ async function main() {
     description: 'Saudi Central Bank (SAMA) policy repo rate.',
     frequency: 'MONTHLY',
     categoryId: categoryByName.Monetary.id,
-    createdById: admin.id,
     unitId: unitByName.Percent.id,
     sourceId: sourceByName.SAMA.id,
     sourceNote: 'Primary',
@@ -280,7 +263,6 @@ async function main() {
     description: 'Monthly merchandise trade balance (exports minus imports).',
     frequency: 'MONTHLY',
     categoryId: categoryByName.Trade.id,
-    createdById: admin.id,
     unitId: unitByName['USD Billion'].id,
     sourceId: sourceByName.GASTAT.id,
     sourceNote: 'Primary',
@@ -326,12 +308,10 @@ async function main() {
         slug: 'macro-overview',
         title: 'Macro Overview',
         description: 'A starter dashboard covering growth, prices, labor, monetary and trade indicators.',
-        visibility: 'PUBLIC',
         published: true,
         sectionId: macroSection.id,
         layoutTemplate: 'GRID',
         gridColumns: 4,
-        ownerId: admin.id,
         widgets: {
           create: [
             {
@@ -424,7 +404,6 @@ async function main() {
   }
 
   console.log('Seed complete.');
-  console.log(`Admin login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD} (change this password immediately)`);
 }
 
 main()

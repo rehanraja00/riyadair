@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db.js';
-import { authenticate, optionalAuthenticate, requireRole } from '../middleware/auth.js';
 import { latestForecasts } from '../lib/forecast.js';
 
 export const viewsRouter = Router();
@@ -12,21 +11,6 @@ function slugify(title) {
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
-}
-
-function visibilityWhere(user) {
-  if (!user) return { visibility: 'PUBLIC', published: true };
-  if (user.role === 'ADMIN') return {};
-  return {
-    AND: [
-      { OR: [{ visibility: 'PUBLIC' }, { visibility: 'SHARED' }, { ownerId: user.id }] },
-      { OR: [{ published: true }, { ownerId: user.id }] },
-    ],
-  };
-}
-
-function canManage(view, user) {
-  return !!user && (user.role === 'ADMIN' || view.ownerId === user.id);
 }
 
 const widgetInclude = {
@@ -52,7 +36,7 @@ const widgetInclude = {
 };
 
 // Flattens forecasts to their latest version so widget renderers don't need
-// to know about DU-10's versioning scheme.
+// to know about the versioning scheme.
 function resolveForecasts(view) {
   for (const widget of view.widgets) {
     for (const wi of widget.indicators) {
@@ -62,48 +46,36 @@ function resolveForecasts(view) {
   return view;
 }
 
-viewsRouter.get('/', optionalAuthenticate, async (req, res) => {
+// The list only shows published pages so drafts don't clutter the main
+// listing; a draft is still reachable directly by its slug.
+viewsRouter.get('/', async (_req, res) => {
   const views = await prisma.view.findMany({
-    where: visibilityWhere(req.user),
+    where: { published: true },
     orderBy: { updatedAt: 'desc' },
-    include: {
-      owner: { select: { id: true, name: true } },
-      section: true,
-      _count: { select: { widgets: true } },
-    },
+    include: { section: true, _count: { select: { widgets: true } } },
   });
   res.json(views);
 });
 
-viewsRouter.get('/:slug', optionalAuthenticate, async (req, res) => {
+viewsRouter.get('/:slug', async (req, res) => {
   const view = await prisma.view.findUnique({
     where: { slug: req.params.slug },
-    include: { owner: { select: { id: true, name: true } }, section: true, ...widgetInclude },
+    include: { section: true, ...widgetInclude },
   });
   if (!view) return res.status(404).json({ error: 'View not found' });
-
-  const manageable = canManage(view, req.user);
-  const visible =
-    manageable ||
-    (view.published &&
-      (view.visibility === 'PUBLIC' || (req.user && (view.visibility === 'SHARED' || req.user.role === 'ADMIN'))));
-  if (!visible) return res.status(404).json({ error: 'View not found' });
-
-  res.json({ ...resolveForecasts(view), canManage: manageable });
+  res.json(resolveForecasts(view));
 });
 
 const viewSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
-  visibility: z.enum(['PRIVATE', 'SHARED', 'PUBLIC']).optional(),
   published: z.boolean().optional(),
   sectionId: z.string().nullable().optional(),
   layoutTemplate: z.enum(['ONE_COL', 'TWO_COL', 'GRID']).optional(),
   gridColumns: z.number().int().min(1).max(12).optional(),
 });
 
-// DU-01: page creation is EDITOR+.
-viewsRouter.post('/', authenticate, requireRole('EDITOR'), async (req, res) => {
+viewsRouter.post('/', async (req, res) => {
   const parsed = viewSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -113,35 +85,35 @@ viewsRouter.post('/', authenticate, requireRole('EDITOR'), async (req, res) => {
   if (clash) slug = `${slug}-${Date.now().toString(36)}`;
 
   const view = await prisma.view.create({
-    data: { title, ...rest, visibility: rest.visibility || 'PRIVATE', slug, ownerId: req.user.id },
+    data: { title, ...rest, slug },
     include: widgetInclude,
   });
   res.status(201).json(view);
 });
 
-viewsRouter.put('/:id', authenticate, async (req, res) => {
-  const view = await prisma.view.findUnique({ where: { id: req.params.id } });
-  if (!view) return res.status(404).json({ error: 'View not found' });
-  if (!canManage(view, req.user)) return res.status(403).json({ error: 'Not allowed to edit this view' });
-
+viewsRouter.put('/:id', async (req, res) => {
   const parsed = viewSchema.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const updated = await prisma.view.update({ where: { id: view.id }, data: parsed.data, include: widgetInclude });
-  res.json(updated);
+  try {
+    const updated = await prisma.view.update({ where: { id: req.params.id }, data: parsed.data, include: widgetInclude });
+    res.json(updated);
+  } catch {
+    res.status(404).json({ error: 'View not found' });
+  }
 });
 
-viewsRouter.delete('/:id', authenticate, async (req, res) => {
-  const view = await prisma.view.findUnique({ where: { id: req.params.id } });
-  if (!view) return res.status(404).json({ error: 'View not found' });
-  if (!canManage(view, req.user)) return res.status(403).json({ error: 'Not allowed to delete this view' });
-
-  await prisma.view.delete({ where: { id: view.id } });
-  res.status(204).end();
+viewsRouter.delete('/:id', async (req, res) => {
+  try {
+    await prisma.view.delete({ where: { id: req.params.id } });
+    res.status(204).end();
+  } catch {
+    res.status(404).json({ error: 'View not found' });
+  }
 });
 
-// DU-02: widgets can carry a collage grid position; DU-01 adds a CONTENT
-// (free-form) widget type that doesn't reference any indicator.
+// Widgets can carry a collage grid position; a CONTENT (free-form) widget
+// type doesn't reference any indicator.
 const widgetsSchema = z
   .array(
     z.object({
@@ -169,10 +141,9 @@ const widgetsSchema = z
     });
   });
 
-viewsRouter.put('/:id/widgets', authenticate, async (req, res) => {
+viewsRouter.put('/:id/widgets', async (req, res) => {
   const view = await prisma.view.findUnique({ where: { id: req.params.id } });
   if (!view) return res.status(404).json({ error: 'View not found' });
-  if (!canManage(view, req.user)) return res.status(403).json({ error: 'Not allowed to edit this view' });
 
   const parsed = widgetsSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });

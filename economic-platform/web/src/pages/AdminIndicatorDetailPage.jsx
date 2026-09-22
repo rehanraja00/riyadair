@@ -189,7 +189,7 @@ export default function AdminIndicatorDetailPage() {
         </label>
 
         <div>
-          <strong>Units</strong> <span className="auth-note">(pick a primary)</span>
+          <strong>Units</strong> <span className="helper-note">(pick a primary)</span>
           <div className="indicator-checklist">
             {units.map((u) => (
               <label key={u.id} className="checklist-item">
@@ -211,7 +211,7 @@ export default function AdminIndicatorDetailPage() {
         </div>
 
         <div>
-          <strong>Sources</strong> <span className="auth-note">(multiple sources supported, each with an attribution note)</span>
+          <strong>Sources</strong> <span className="helper-note">(multiple sources supported, each with an attribution note)</span>
           <div className="indicator-checklist">
             {sources.map((s) => (
               <label key={s.id} className="checklist-item">
@@ -247,7 +247,7 @@ export default function AdminIndicatorDetailPage() {
 
       <div className="panel">
         <h3>Targets ({indicator.targets.length})</h3>
-        <p className="auth-note">Interval-level targets — the plan/budget for each period, shown alongside actuals and forecasts.</p>
+        <p className="helper-note">Interval-level targets — the plan/budget for each period, shown alongside actuals and forecasts.</p>
         <IntervalPointsEditor
           points={indicator.targets}
           onAdd={(p) => api.addTargets(id, p).then(reload)}
@@ -258,7 +258,7 @@ export default function AdminIndicatorDetailPage() {
 
       <div className="panel">
         <h3>Forecasts ({indicator.forecasts.length})</h3>
-        <p className="auth-note">
+        <p className="helper-note">
           Rolling forecast — saving never overwrites a prior forecast, it adds a new version. The table shows the latest version per period.
         </p>
         <IntervalPointsEditor
@@ -272,7 +272,7 @@ export default function AdminIndicatorDetailPage() {
 
       <div className="panel">
         <h3>Baselines ({indicator.baselines.length})</h3>
-        <p className="auth-note">
+        <p className="helper-note">
           Baselines are never edited — add a new one, optionally marking which baseline it supersedes. Only one baseline is
           &ldquo;active&rdquo; (the widget-level default) at a time.
         </p>

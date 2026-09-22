@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db.js';
-import { authenticate, requireRole } from '../middleware/auth.js';
 
 // DU-04: Source and Unit are structurally identical reference-data entities —
 // full CRUD, soft-deactivate (never hard-delete, to preserve history on past
@@ -24,7 +23,7 @@ export function makeReferenceDataRouter({ modelName, linkModelName, fkField, ext
 
   const createSchema = z.object({ name: z.string().min(1), ...extraShape });
 
-  router.post('/', authenticate, requireRole('EDITOR'), async (req, res) => {
+  router.post('/', async (req, res) => {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -37,7 +36,7 @@ export function makeReferenceDataRouter({ modelName, linkModelName, fkField, ext
     }
   });
 
-  router.put('/:id', authenticate, requireRole('EDITOR'), async (req, res) => {
+  router.put('/:id', async (req, res) => {
     const parsed = createSchema.partial().safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -50,7 +49,7 @@ export function makeReferenceDataRouter({ modelName, linkModelName, fkField, ext
     }
   });
 
-  router.post('/:id/deactivate', authenticate, requireRole('ADMIN'), async (req, res) => {
+  router.post('/:id/deactivate', async (req, res) => {
     try {
       const item = await model.update({ where: { id: req.params.id }, data: { active: false } });
       res.json(item);
@@ -59,7 +58,7 @@ export function makeReferenceDataRouter({ modelName, linkModelName, fkField, ext
     }
   });
 
-  router.post('/:id/reactivate', authenticate, requireRole('ADMIN'), async (req, res) => {
+  router.post('/:id/reactivate', async (req, res) => {
     try {
       const item = await model.update({ where: { id: req.params.id }, data: { active: true } });
       res.json(item);
@@ -70,7 +69,7 @@ export function makeReferenceDataRouter({ modelName, linkModelName, fkField, ext
 
   const mergeSchema = z.object({ intoId: z.string().min(1) });
 
-  router.post('/:id/merge', authenticate, requireRole('ADMIN'), async (req, res) => {
+  router.post('/:id/merge', async (req, res) => {
     const parsed = mergeSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
     const fromId = req.params.id;
